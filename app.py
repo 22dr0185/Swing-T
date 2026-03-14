@@ -1,487 +1,169 @@
 import streamlit as st
+import yfinance as yf
 import pandas as pd
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from datetime import datetime
-import time
 
-# Import our modules
-from stock_analyzer import IndianStockAnalyzer
-from geopolitical_analyzer import GeopoliticalAnalyzer
-from utils import get_market_status, format_currency, create_sample_data
-import config
-
-# Page configuration
+# Page config
 st.set_page_config(
-    page_title="Indian Stock Market Signals",
+    page_title="Swing Trading Signals",
     page_icon="📈",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# Custom CSS
-st.markdown("""
-    <style>
-    .main-header {
-        font-size: 2.5rem;
-        color: #FF4B4B;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .sub-header {
-        font-size: 1.2rem;
-        color: #666;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .signal-buy {
-        background-color: #00ff0010;
-        padding: 0.5rem;
-        border-radius: 0.5rem;
-        border-left: 5px solid green;
-    }
-    .signal-sell {
-        background-color: #ff000010;
-        padding: 0.5rem;
-        border-radius: 0.5rem;
-        border-left: 5px solid red;
-    }
-    .metric-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        text-align: center;
-    }
-    </style>
-""", unsafe_allow_html=True)
+# Title
+st.title("📈 Swing Trading Signal Generator")
+st.markdown("---")
 
-# Initialize session state
-if 'analyzer' not in st.session_state:
-    st.session_state.analyzer = IndianStockAnalyzer()
-if 'geo_analyzer' not in st.session_state:
-    st.session_state.geo_analyzer = GeopoliticalAnalyzer()
-if 'signals' not in st.session_state:
-    st.session_state.signals = pd.DataFrame()
-if 'last_update' not in st.session_state:
-    st.session_state.last_update = datetime.now()
-
-# Header
-st.markdown('<h1 class="main-header">📈 Indian Stock Market Signal Generator</h1>', 
-            unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Real-time analysis of Nifty 100 & Nifty Midcap 150 stocks</p>', 
-            unsafe_allow_html=True)
+# Simple stock list
+stocks = {
+    'RELIANCE': 'RELIANCE.NS',
+    'TCS': 'TCS.NS',
+    'HDFC Bank': 'HDFCBANK.NS',
+    'Infosys': 'INFY.NS',
+    'ICICI Bank': 'ICICIBANK.NS',
+    'SBIN': 'SBIN.NS',
+    'BHARTIARTL': 'BHARTIARTL.NS',
+    'ITC': 'ITC.NS',
+    'HINDUNILVR': 'HINDUNILVR.NS',
+    'KOTAKBANK': 'KOTAKBANK.NS'
+}
 
 # Sidebar
 with st.sidebar:
-    st.image("https://img.icons8.com/color/96/000000/stocks.png", width=100)
-    st.title("⚙️ Controls")
-    
-    # Market status
-    status, color = get_market_status()
-    st.markdown(f"### {status}")
-    
-    # Refresh rate
-    refresh_rate = st.selectbox(
-        "Refresh Rate",
-        ["Manual", "30 seconds", "1 minute", "5 minutes"],
-        index=0
-    )
-    
-    # Minimum probability
-    min_prob = st.slider(
-        "Minimum Probability %",
-        min_value=50,
-        max_value=100,
-        value=75,
-        step=5
-    )
-    
-    # Signal type filter
-    signal_filter = st.multiselect(
-        "Show Signals",
-        ["BUY", "SELL"],
-        default=["BUY", "SELL"]
-    )
-    
-    # Auto-refresh toggle
-    auto_refresh = st.checkbox("Auto Refresh", value=False)
-    
-    # Refresh button
-    if st.button("🔄 Refresh Now", type="primary", use_container_width=True):
-        st.session_state.signals = st.session_state.analyzer.analyze_all_stocks()
-        st.session_state.last_update = datetime.now()
+    st.header("⚙️ Controls")
+    if st.button("🔄 Refresh Data"):
         st.rerun()
     
-    st.divider()
-    
-    # Demo trade section
-    st.markdown("### 💼 Demo Trade")
-    st.markdown("Try our dummy trade with ₹25,000")
-    
-    if st.button("🎯 Start Demo Trade", use_container_width=True):
-        st.session_state.page = "demo"
-        st.rerun()
+    st.markdown("---")
+    st.markdown("### About")
+    st.markdown("This app shows real-time Indian stock prices")
+    st.markdown("📊 Data from Yahoo Finance")
 
-# Main content area
-col1, col2, col3 = st.columns(3)
+# Main content
+st.subheader("🎯 Live Stock Prices")
 
-# Column 1: Geopolitical Analysis
-with col1:
-    st.markdown("### 🌍 Geopolitical Impact")
-    
-    # Get geopolitical analysis
-    geo_data = st.session_state.geo_analyzer.analyze_geopolitical_impact()
-    
-    # Risk level with color
-    risk_color = {
-        'LOW': '🟢',
-        'MEDIUM': '🟡',
-        'HIGH': '🔴'
-    }
-    
-    st.markdown(f"""
-    <div class="metric-card">
-        <h4>Current Headline</h4>
-        <p>"{geo_data['headline']}"</p>
-        <h3>{risk_color[geo_data['risk_level']]} Risk Level: {geo_data['risk_level']}</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Metrics
-    col1a, col1b = st.columns(2)
-    with col1a:
-        st.metric("Oil Impact", f"{geo_data['oil_impact']}%")
-    with col1b:
-        st.metric("Market Impact", f"{geo_data['market_impact']}%")
-    
-    st.markdown("**Affected Sectors:**")
-    for sector in geo_data['affected_sectors']:
-        st.markdown(f"- {sector}")
-
-# Column 2: Market Overview
-with col2:
-    st.markdown("### 📊 Market Overview")
-    
-    # Get sample data for chart
-    sample_data = create_sample_data()
-    
-    # Create mini chart
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=sample_data.index[-50:],
-        y=sample_data['Close'][-50:],
-        mode='lines',
-        name='Price',
-        line=dict(color='#FF4B4B', width=2)
-    ))
-    fig.update_layout(
-        height=150,
-        margin=dict(l=0, r=0, t=0, b=0),
-        showlegend=False,
-        xaxis_visible=False,
-        yaxis_visible=False
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Market metrics
-    col2a, col2b, col2c = st.columns(3)
-    with col2a:
-        st.metric("Nifty 50", "22,345", "+125")
-    with col2b:
-        st.metric("Bank Nifty", "47,890", "+345")
-    with col2c:
-        st.metric("India VIX", "13.5", "-0.8")
-
-# Column 3: Quick Stats
-with col3:
-    st.markdown("### ⚡ Quick Stats")
-    
-    # Get signals if not loaded
-    if st.session_state.signals.empty:
-        st.session_state.signals = st.session_state.analyzer.analyze_all_stocks()
-    
-    if not st.session_state.signals.empty:
-        buy_count = len(st.session_state.signals[
-            st.session_state.signals['Signal'] == 'BUY'
-        ])
-        sell_count = len(st.session_state.signals[
-            st.session_state.signals['Signal'] == 'SELL'
-        ])
+# Create a table
+data = []
+for name, symbol in stocks.items():
+    try:
+        # Get stock data
+        stock = yf.Ticker(symbol)
         
-        col3a, col3b, col3c = st.columns(3)
-        with col3a:
-            st.metric("Total Signals", len(st.session_state.signals))
-        with col3b:
-            st.metric("Buy Signals", buy_count, delta=None)
-        with col3c:
-            st.metric("Sell Signals", sell_count, delta=None)
+        # Get current price - simpler approach
+        hist = stock.history(period="1d", interval="1m")
         
-        # Last update time
-        st.caption(f"Last updated: {st.session_state.last_update.strftime('%H:%M:%S')}")
+        if not hist.empty:
+            price = hist['Close'].iloc[-1]
+            change = hist['Close'].iloc[-1] - hist['Open'].iloc[0]
+            change_pct = (change / hist['Open'].iloc[0]) * 100
+            
+            data.append({
+                'Stock': name,
+                'Price': f"₹{price:.2f}",
+                'Change': f"{change:.2f}",
+                'Change %': f"{change_pct:.2f}%",
+                'Volume': f"{int(hist['Volume'].iloc[-1]):,}"
+            })
+        else:
+            # Try daily data if intraday not available
+            hist = stock.history(period="1d")
+            if not hist.empty:
+                price = hist['Close'].iloc[-1]
+                data.append({
+                    'Stock': name,
+                    'Price': f"₹{price:.2f}",
+                    'Change': 'N/A',
+                    'Change %': 'N/A',
+                    'Volume': 'N/A'
+                })
+            else:
+                data.append({
+                    'Stock': name,
+                    'Price': 'N/A',
+                    'Change': 'N/A',
+                    'Change %': 'N/A',
+                    'Volume': 'N/A'
+                })
+    except Exception as e:
+        data.append({
+            'Stock': name,
+            'Price': 'Error',
+            'Change': 'Error',
+            'Change %': 'Error',
+            'Volume': 'Error'
+        })
 
-# Main Signals Table
-st.markdown("### 🎯 Live Trading Signals")
-st.caption("High probability signals with >75% confidence")
-
-# Filter signals
-if not st.session_state.signals.empty:
-    filtered_signals = st.session_state.signals[
-        st.session_state.signals['Signal'].isin(signal_filter)
-    ]
+# Convert to DataFrame and display
+if data:
+    df = pd.DataFrame(data)
     
-    # Apply color formatting
-    def color_signal(val):
-        color = 'green' if val == 'BUY' else 'red'
-        return f'background-color: {color}20; color: {color}; font-weight: bold'
-    
-    styled_df = filtered_signals.style.applymap(
-        color_signal, subset=['Signal']
-    )
+    # Color coding for changes
+    def color_change(val):
+        if isinstance(val, str):
+            return ''
+        try:
+            if float(str(val).replace('%', '')) > 0:
+                return 'color: green'
+            elif float(str(val).replace('%', '')) < 0:
+                return 'color: red'
+        except:
+            return ''
+        return ''
     
     st.dataframe(
-        styled_df,
+        df,
         use_container_width=True,
         hide_index=True,
         column_config={
             "Stock": "Company",
-            "Signal": "Signal",
-            "Probability": "Confidence",
-            "Price": "Current Price",
-            "RSI": "RSI",
-            "Reasons": "Key Reasons",
-            "Time": "Time"
+            "Price": "Price (₹)",
+            "Change": "Change (₹)",
+            "Change %": "Change %",
+            "Volume": "Volume"
         }
     )
-    
-    # Download button
-    csv = filtered_signals.to_csv(index=False)
-    st.download_button(
-        label="📥 Download Signals",
-        data=csv,
-        file_name=f"signals_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv"
-    )
 else:
-    st.info("No signals available. Click Refresh to generate signals.")
+    st.warning("No data available. Please refresh.")
 
-# Individual Stock Analysis
-st.markdown("### 🔍 Individual Stock Analysis")
-st.caption("Click on any stock below for detailed technical analysis")
+# Market Overview
+st.subheader("📊 Market Overview")
 
-# Stock selector
-selected_stock = st.selectbox(
-    "Select a stock to analyze",
-    options=list(st.session_state.analyzer.nifty_stocks.keys()),
-    key="stock_selector"
-)
+# Get indices data
+indices = {
+    'Nifty 50': '^NSEI',
+    'Bank Nifty': '^NSEBANK',
+    'India VIX': '^INDIAVIX'
+}
 
-if selected_stock:
-    symbol = st.session_state.analyzer.nifty_stocks[selected_stock]
-    
-    # Get stock data
-    with st.spinner(f"Fetching data for {selected_stock}..."):
-        df = st.session_state.analyzer.get_stock_data(symbol)
-        df = st.session_state.analyzer.calculate_indicators(df)
-        signal, prob, reasons = st.session_state.analyzer.generate_signal(df)
-    
-    # Display stock metrics
-    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
-    
-    current_price = df['Close'].iloc[-1] if not df.empty else 0
-    current_rsi = df['RSI'].iloc[-1] if not df.empty and 'RSI' in df.columns else 50
-    current_volume = df['Volume'].iloc[-1] if not df.empty else 0
-    
-    with col_s1:
-        st.metric("Current Price", f"₹{current_price:.2f}")
-    with col_s2:
-        delta = "Oversold" if current_rsi < 30 else "Overbought" if current_rsi > 70 else "Neutral"
-        st.metric("RSI", f"{current_rsi:.1f}", delta)
-    with col_s3:
-        st.metric("Volume", f"{int(current_volume):,}")
-    with col_s4:
-        if signal:
-            st.metric("Signal", signal, f"{prob}%")
-        else:
-            st.metric("Signal", "NEUTRAL", "0%")
-    
-    # Create detailed chart
-    if not df.empty:
-        fig = make_subplots(
-            rows=3, cols=1,
-            shared_xaxes=True,
-            vertical_spacing=0.05,
-            row_heights=[0.5, 0.25, 0.25],
-            subplot_titles=('Price & EMAs', 'Volume', 'RSI')
-        )
-        
-        # Candlestick chart
-        fig.add_trace(
-            go.Candlestick(
-                x=df.index[-100:],
-                open=df['Open'][-100:],
-                high=df['High'][-100:],
-                low=df['Low'][-100:],
-                close=df['Close'][-100:],
-                name='Price'
-            ),
-            row=1, col=1
-        )
-        
-        # Add EMAs
-        if 'EMA_9' in df.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=df.index[-100:], 
-                    y=df['EMA_9'][-100:], 
-                    line=dict(color='orange', width=1),
-                    name='EMA 9'
-                ),
-                row=1, col=1
-            )
-        if 'EMA_20' in df.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=df.index[-100:], 
-                    y=df['EMA_20'][-100:], 
-                    line=dict(color='blue', width=1),
-                    name='EMA 20'
-                ),
-                row=1, col=1
-            )
-        
-        # Volume chart
-        colors = ['red' if close < open else 'green' 
-                 for close, open in zip(df['Close'][-100:], df['Open'][-100:])]
-        fig.add_trace(
-            go.Bar(
-                x=df.index[-100:], 
-                y=df['Volume'][-100:], 
-                name='Volume',
-                marker_color=colors
-            ),
-            row=2, col=1
-        )
-        
-        # RSI chart
-        if 'RSI' in df.columns:
-            fig.add_trace(
-                go.Scatter(
-                    x=df.index[-100:], 
-                    y=df['RSI'][-100:], 
-                    line=dict(color='purple', width=1),
-                    name='RSI'
-                ),
-                row=3, col=1
-            )
-            fig.add_hline(y=70, line_dash="dash", line_color="red", row=3, col=1)
-            fig.add_hline(y=30, line_dash="dash", line_color="green", row=3, col=1)
-        
-        fig.update_layout(
-            height=600,
-            showlegend=False,
-            xaxis_rangeslider_visible=False,
-            template='plotly_white'
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Analysis summary
-        st.markdown("#### 📝 Analysis Summary")
-        
-        if reasons:
-            st.markdown("**Signal Reasons:**")
-            for reason in reasons:
-                st.markdown(f"- {reason}")
-        
-        # Trading recommendation
-        if signal == "BUY" and prob >= 75:
-            st.success(f"✅ **HIGH CONFIDENCE BUY SIGNAL** - Probability: {prob}%")
-            st.markdown("""
-            **Suggested Action:** Consider buying with:
-            - Entry: Current price
-            - Target: +5% from entry
-            - Stop Loss: -2% from entry
-            """)
-        elif signal == "SELL" and prob >= 75:
-            st.error(f"🔴 **HIGH CONFIDENCE SELL SIGNAL** - Probability: {prob}%")
-            st.markdown("""
-            **Suggested Action:** Consider selling with:
-            - Entry: Current price
-            - Target: -5% from entry
-            - Stop Loss: +2% from entry
-            """)
-        else:
-            st.info("📊 **NEUTRAL** - No clear signal. Wait for better opportunity.")
+indices_data = []
+for name, symbol in indices.items():
+    try:
+        index = yf.Ticker(symbol)
+        hist = index.history(period="1d")
+        if not hist.empty:
+            price = hist['Close'].iloc[-1]
+            prev_close = hist['Close'].iloc[-2] if len(hist) > 1 else price
+            change = price - prev_close
+            change_pct = (change / prev_close) * 100
+            
+            indices_data.append({
+                'Index': name,
+                'Value': f"{price:.2f}",
+                'Change': f"{change:.2f}",
+                'Change %': f"{change_pct:.2f}%"
+            })
+    except:
+        pass
 
-# Auto-refresh logic
-if auto_refresh:
-    refresh_seconds = {
-        "30 seconds": 30,
-        "1 minute": 60,
-        "5 minutes": 300
-    }.get(refresh_rate, 0)
-    
-    if refresh_seconds > 0:
-        time.sleep(refresh_seconds)
-        st.session_state.signals = st.session_state.analyzer.analyze_all_stocks()
-        st.session_state.last_update = datetime.now()
-        st.rerun()
-
-# Demo Trade Page
-if 'page' in st.session_state and st.session_state.page == "demo":
-    st.markdown("---")
-    st.markdown("## 💰 Demo Trade with ₹25,000")
-    
-    # Create demo trade table
-    demo_data = pd.DataFrame({
-        'Step': [1, 2, 3, 4, 5],
-        'Action': ['Initial Capital', 'Buy Reliance (8 shares)', 'Brokerage & Charges', 
-                   'Hold for 5 days', 'Sell at Target'],
-        'Amount (₹)': ['25,000', '-20,000', '-21.80', '0', '+21,182.19'],
-        'Balance (₹)': ['25,000', '5,000', '4,978.20', '4,978.20', '26,160.39']
-    })
-    
-    st.table(demo_data)
-    
-    st.markdown("""
-    ### 📊 Trade Summary
-    
-    **Profit: ₹1,160.39 (4.64% return in 5 days)**
-    
-    **Key Takeaways:**
-    - Buy signal at ₹2,500 with 85% confidence
-    - Sold at ₹2,650 after 5 days
-    - Total charges: ₹39.61
-    - Net profit: ₹1,160.39
-    
-    **Risk Management:**
-    - Stop Loss: ₹2,450 (-2% loss)
-    - Target: ₹2,650 (+6% gain)
-    - Risk/Reward Ratio: 1:3
-    """)
-    
-    if st.button("← Back to Main Dashboard"):
-        st.session_state.page = "main"
-        st.rerun()
+if indices_data:
+    st.dataframe(pd.DataFrame(indices_data), use_container_width=True, hide_index=True)
 
 # Footer
 st.markdown("---")
-col_f1, col_f2, col_f3 = st.columns(3)
-with col_f1:
-    st.caption("📊 Data Source: Yahoo Finance")
-with col_f2:
-    st.caption(f"⏰ Last Full Scan: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-with col_f3:
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.caption(f"📅 Date: {datetime.now().strftime('%Y-%m-%d')}")
+with col2:
+    st.caption(f"⏰ Time: {datetime.now().strftime('%H:%M:%S')}")
+with col3:
     st.caption("⚠️ For educational purposes only")
-
-# Risk disclaimer
-with st.expander("📋 Important Disclaimer"):
-    st.markdown("""
-    **Trading involves substantial risk. This application is for educational purposes only.**
-    
-    - The signals generated are based on technical analysis and may not always be accurate
-    - Past performance does not guarantee future results
-    - Always consult with a financial advisor before making investment decisions
-    - Never invest more than you can afford to lose
-    - This is not investment advice
-    """)
